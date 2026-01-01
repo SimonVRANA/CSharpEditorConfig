@@ -1,57 +1,50 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
-:: 1. Navigate to the folder where this script (and .editorconfig) resides
+:: ---------------------------------------------------------
+:: ENSURE SCRIPT RUNS IN ITS OWN FOLDER
+:: ---------------------------------------------------------
 pushd "%~dp0"
 
-:: 2. Dynamically determine the folder names
-:: We assume the structure is Root -> ParentFolder (.config) -> SubmoduleFolder (CsEditorConfig) -> ThisScript
-echo [Setup] detecting paths...
-:: Get the Submodule Folder Name (e.g., CsEditorConfig)
-for %%I in (.) do set "SubmoduleDir=%%~nxI"
-:: Go up one level to the Parent Folder
-cd ..
-for %%I in (.) do set "ParentDir=%%~nxI"
-:: Go up one more level to the Main Repository Root
-cd ..
+:: ---------------------------------------------------------
+:: 1. FIND GIT HOOKS DIRECTORY
+:: ---------------------------------------------------------
+:: We use git rev-parse to ask Git "Where are the hooks for THIS folder?"
+:: This handles normal repos AND submodules correctly.
+for /f "delims=" %%i in ('git rev-parse --git-path hooks') do set "HOOKS_DIR=%%i"
 
-:: 3. Define paths relative to the Main Root
-set "FILE_NAME=.editorconfig"
-set "SOURCE_PATH=%ParentDir%\%SubmoduleDir%\%FILE_NAME%"
+if "%HOOKS_DIR%"=="" (
+    echo [Error] Could not find Git hooks directory. 
+    echo Are you sure this folder is inside a Git repository?
+    popd
+    exit /b 1
+)
 
-echo    - Root detected at: %CD%
-echo    - Source file is:   %SOURCE_PATH%
+:: ---------------------------------------------------------
+:: 2. CREATE THE POST-CHECKOUT HOOK
+:: ---------------------------------------------------------
+set "HOOK_FILE=%HOOKS_DIR%\post-checkout"
+echo [Setup] Found hooks directory: %HOOKS_DIR%
+echo [Setup] Creating 'post-checkout' hook...
+
+:: We write a small shell script that calls our batch file.
+:: ".\CopyEditorConfig.bat" ensures it looks in the submodule root.
+(
+    echo #!/bin/sh
+    echo echo "Git Hook: Submodule updated. Syncing .editorconfig..."
+    echo cmd.exe /c .\CopyEditorConfig.bat
+) > "%HOOK_FILE%"
+
+:: ---------------------------------------------------------
+:: 3. RUN IT ONCE NOW
+:: ---------------------------------------------------------
+echo [Setup] Hook installed. Running initial sync...
+call CopyEditorConfig.bat
+
 echo.
+echo [Setup] Complete. 
+echo         The .editorconfig is synced and will auto-update on git pull/checkout.
 
-:: 4. Check if a .editorconfig already exists at the Root
-if exist "%FILE_NAME%" (
-    echo [INFO] A %FILE_NAME% file already exists at the root.
-    set /p "CHOICE=Do you want to overwrite it with the copy? [Y/N] "
-    if /i "!CHOICE!" neq "Y" (
-        echo Operation cancelled.
-        goto :End
-    )
-    :: No need to explicitly del, copy /Y handles overwrite, but this keeps intent clear
-)
-
-:: 5. Create the Copy
-:: We are currently at the Root. 
-:: Syntax: copy /Y [Source] [Destination]
-echo Copying file...
-copy /Y "%SOURCE_PATH%" "%FILE_NAME%"
-
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Failed to copy file.
-    echo ---------------------------------------------------
-    echo Please check if the source file exists and
-    echo that you have write permissions for this folder.
-    echo ---------------------------------------------------
-) else (
-    echo.
-    echo [SUCCESS] Root .editorconfig has been updated from submodule!
-)
-
-:End
-pause
+:: Return to original directory
 popd
+pause
