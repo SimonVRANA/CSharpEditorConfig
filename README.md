@@ -2,8 +2,9 @@
 This is my personal editor config that I'll be reusing in all my C# projects.
 
 ## Install
-- run `git add .gitmodules .config/CsEditorConfig .editorconfig`
-- run `.config/CsEditorConfig/Install.bat`
+- create a folder named `.config`.
+- run `git submodule add git@github.com:SimonVRANA/CSharpEditorConfig.git .config/CsEditorConfig` from your root folder.
+- run `.config/CsEditorConfig/Install.bat`.
 - commit in your main repository.
 
 ## Tips
