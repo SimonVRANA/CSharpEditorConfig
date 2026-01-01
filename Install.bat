@@ -16,39 +16,40 @@ for %%I in (.) do set "ParentDir=%%~nxI"
 cd ..
 
 :: 3. Define paths relative to the Main Root
-set "LINK_NAME=.editorconfig"
-set "TARGET_PATH=%ParentDir%\%SubmoduleDir%\%LINK_NAME%"
+set "FILE_NAME=.editorconfig"
+set "SOURCE_PATH=%ParentDir%\%SubmoduleDir%\%FILE_NAME%"
 
 echo    - Root detected at: %CD%
-echo    - Target file is:   %TARGET_PATH%
+echo    - Source file is:   %SOURCE_PATH%
 echo.
 
 :: 4. Check if a .editorconfig already exists at the Root
-if exist "%LINK_NAME%" (
-    echo [INFO] A %LINK_NAME% file already exists at the root.
-    set /p "CHOICE=Do you want to replace it with the symlink? [Y/N] "
+if exist "%FILE_NAME%" (
+    echo [INFO] A %FILE_NAME% file already exists at the root.
+    set /p "CHOICE=Do you want to overwrite it with the copy? [Y/N] "
     if /i "!CHOICE!" neq "Y" (
         echo Operation cancelled.
         goto :End
     )
-    del "%LINK_NAME%"
+    :: No need to explicitly del, copy /Y handles overwrite, but this keeps intent clear
 )
 
-:: 5. Create the Symbolic Link
-:: We are currently at the Root, so we link "Target Path" to ".editorconfig"
-echo Creating symlink...
-mklink "%LINK_NAME%" "%TARGET_PATH%"
+:: 5. Create the Copy
+:: We are currently at the Root. 
+:: Syntax: copy /Y [Source] [Destination]
+echo Copying file...
+copy /Y "%SOURCE_PATH%" "%FILE_NAME%"
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Failed to create symlink.
+    echo [ERROR] Failed to copy file.
     echo ---------------------------------------------------
-    echo Windows requires Administrator privileges for this.
-    echo Please right-click Install.bat and "Run as administrator".
+    echo Please check if the source file exists and
+    echo that you have write permissions for this folder.
     echo ---------------------------------------------------
 ) else (
     echo.
-    echo [SUCCESS] Root .editorconfig now linked to submodule!
+    echo [SUCCESS] Root .editorconfig has been updated from submodule!
 )
 
 :End
